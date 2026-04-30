@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shipment Tracker · TKM Global</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --navy:#0f172a; --navy2:#1e3a5f; --blue:#0ea5e9; --blue2:#2563eb;
+      --surface:rgba(255,255,255,0.06); --border:rgba(255,255,255,0.09);
+      --text:#f1f5f9; --muted:#64748b; --mid:#94a3b8;
+      --lcl:#0ea5e9; --fcl:#10b981; --air:#8b5cf6;
+    }
+    body { font-family:'Segoe UI',system-ui,sans-serif; background:linear-gradient(160deg,var(--navy) 0%,var(--navy2) 60%,var(--navy) 100%); min-height:100vh; color:var(--text); }
+
+    /* TOP BAR */
+    #topbar { background:rgba(255,255,255,0.04); border-bottom:1px solid var(--border); padding:12px 24px; display:flex; align-items:center; gap:12px; position:sticky; top:0; z-index:10; backdrop-filter:blur(12px); }
+    .logo{font-size:22px} .brand{font-size:14px;font-weight:700;letter-spacing:.4px} .sub{font-size:11px;color:var(--muted)}
+    #pill{margin-left:auto;font-size:11px;color:var(--muted);background:rgba(255,255,255,0.05);padding:4px 12px;border-radius:20px;display:flex;align-items:center;gap:5px}
+    #live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;display:none}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+    /* MAIN */
+    #app{max-width:820px;margin:0 auto;padding:40px 20px 60px}
+    h1{font-size:30px;font-weight:800;letter-spacing:-.5px} .subtitle{color:var(--muted);margin-top:8px;font-size:15px}
+
+    /* MODE TABS */
+    .mode-tabs{display:flex;gap:10px;margin-top:28px}
+    .mode-tab{flex:1;padding:14px 12px;border-radius:14px;border:2px solid var(--border);background:var(--surface);color:var(--mid);font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
+    .mode-tab:hover{border-color:rgba(255,255,255,.2);color:var(--text)}
+    .mode-tab.active.lcl{background:rgba(14,165,233,.15);border-color:var(--lcl);color:var(--lcl)}
+    .mode-tab.active.fcl{background:rgba(16,185,129,.15);border-color:var(--fcl);color:var(--fcl)}
+    .mode-tab.active.air{background:rgba(139,92,246,.15);border-color:var(--air);color:var(--air)}
+    .tab-icon{font-size:18px} .tab-sub{font-size:10px;font-weight:400;opacity:.7;display:block;margin-top:2px}
+
+    /* SEARCH */
+    #search-area{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;backdrop-filter:blur(10px);box-shadow:0 8px 32px rgba(0,0,0,.3);margin-top:16px;display:none}
+    .toggle-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+    .toggle-btn{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:none;transition:all .2s;background:rgba(255,255,255,.08);color:var(--mid)}
+    .toggle-btn.active{color:#fff}
+    .search-row{display:flex;gap:10px}
+    #search-input{flex:1;padding:14px 18px;border-radius:12px;font-size:14px;background:rgba(255,255,255,.1);color:var(--text);border:1px solid rgba(255,255,255,.15);outline:none;transition:border .2s}
+    #search-input::placeholder{color:var(--muted)}
+    #search-btn{padding:14px 28px;border-radius:12px;font-size:14px;font-weight:700;color:#fff;border:none;cursor:pointer;white-space:nowrap;transition:background .2s}
+    #clear-btn{margin-top:10px;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;display:none}
+    #status-bar{margin-top:12px;font-size:11px;color:var(--muted)}
+
+    /* LOADER */
+    #loader{display:none;text-align:center;padding:64px 20px;margin-top:16px}
+    .spinner{width:44px;height:44px;border-radius:50%;border:3px solid rgba(255,255,255,.1);border-top-color:var(--blue);animation:spin .8s linear infinite;margin:0 auto 16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #loader p{color:var(--muted);font-size:14px}
+    #error-box{display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px 20px;margin-top:16px;color:#991b1b;font-size:13px;line-height:1.6}
+
+    /* RESULTS */
+    #results{margin-top:28px}
+    .result-count{font-size:13px;color:var(--muted);font-weight:500;margin-bottom:14px}
+    .empty{text-align:center;padding:48px 20px;background:var(--surface);border-radius:16px;border:1px dashed var(--border)}
+    .empty .icon{font-size:40px;margin-bottom:12px} .empty h3{font-size:16px;margin-bottom:6px} .empty p{font-size:13px;color:var(--muted)}
+
+    /* CARD */
+    .card{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 32px rgba(0,0,0,.14);border:1px solid #e2e8f0;margin-bottom:20px;color:#111827}
+    .card-head{padding:20px 24px 24px}
+    .card-head.lcl{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)}
+    .card-head.fcl{background:linear-gradient(135deg,#052e16 0%,#065f46 100%)}
+    .card-head.air{background:linear-gradient(135deg,#1e1b4b 0%,#4c1d95 100%)}
+    .card-mode-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.5px;margin-bottom:8px}
+    .card-mode-badge.lcl{background:rgba(14,165,233,.2);color:#7dd3fc}
+    .card-mode-badge.fcl{background:rgba(16,185,129,.2);color:#6ee7b7}
+    .card-mode-badge.air{background:rgba(139,92,246,.2);color:#c4b5fd}
+    .card-po-label{font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px}
+    .card-po-value{font-size:20px;color:#fff;font-weight:800;letter-spacing:-.3px}
+
+    /* ROUTE */
+    .card-route{display:flex;align-items:center;gap:0;margin-top:12px}
+    .route-port{background:rgba(255,255,255,.12);border-radius:8px;padding:5px 14px;text-align:center;min-width:60px}
+    .route-port-code{font-size:16px;font-weight:800;color:#f1f5f9}
+    .route-port-label{font-size:9px;color:#94a3b8;margin-top:1px}
+    .route-mid{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:0 10px}
+    .route-arrow-line{width:100%;height:2px;background:rgba(255,255,255,.2);border-radius:1px;position:relative}
+    .route-arrow-line::after{content:"▶";position:absolute;right:-6px;top:50%;transform:translateY(-50%);color:#64748b;font-size:11px}
+    .route-sub{font-size:10px;color:#64748b;font-style:italic;text-align:center;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+    /* TRACKER */
+    .tracker-wrap{background:#fff;padding:20px 20px 8px;border-bottom:1px solid #f1f5f9}
+    .tracker-title{font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px}
+    .tracker{position:relative;padding:0 0 28px}
+    .tracker-line-bg{position:absolute;top:14px;left:calc(100%/14);right:calc(100%/14);height:3px;background:#e5e7eb;border-radius:2px;z-index:0}
+    .tracker-line-fill{position:absolute;top:0;left:0;height:100%;border-radius:2px;transition:width .5s ease}
+    .tracker-line-fill.lcl{background:linear-gradient(90deg,#0ea5e9,#2563eb)}
+    .tracker-line-fill.fcl{background:linear-gradient(90deg,#10b981,#059669)}
+    .tracker-line-fill.air{background:linear-gradient(90deg,#8b5cf6,#6d28d9)}
+    .tracker-nodes{display:flex;justify-content:space-between;position:relative;z-index:1}
+    .tracker-node{display:flex;flex-direction:column;align-items:center;flex:1}
+    .node-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid #d1d5db;background:#fff;color:#9ca3af;position:relative;z-index:2}
+    .node-circle.done.lcl{background:#0ea5e9;border-color:#0ea5e9;color:#fff;box-shadow:0 2px 8px rgba(14,165,233,.4)}
+    .node-circle.done.fcl{background:#10b981;border-color:#10b981;color:#fff;box-shadow:0 2px 8px rgba(16,185,129,.4)}
+    .node-circle.done.air{background:#8b5cf6;border-color:#8b5cf6;color:#fff;box-shadow:0 2px 8px rgba(139,92,246,.4)}
+    .node-circle.done::after{content:"✓";font-size:13px;font-weight:700}
+    .node-circle.open::after{content:"○";font-size:16px;color:#d1d5db}
+    .node-label{font-size:9px;font-weight:600;color:#9ca3af;text-align:center;margin-top:6px;line-height:1.3;max-width:62px}
+    .node-label.done.lcl{color:#0ea5e9} .node-label.done.fcl{color:#10b981} .node-label.done.air{color:#8b5cf6}
+    .node-label.open{color:#cbd5e1}
+
+    /* INFO GRID */
+    .info-grid{padding:16px 20px 4px;display:grid;grid-template-columns:1fr 1fr;gap:0}
+    .info-item{padding:9px 0;border-bottom:1px solid #f3f4f6}
+    .info-item.full{grid-column:1/-1}
+    .info-label{font-size:10px;color:#94a3b8;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:3px}
+    .info-value{font-size:13px;color:#111827;font-weight:500}
+    .info-value.hl{color:#1d4ed8;font-weight:700}
+    .info-value.tba{color:#94a3b8;font-style:italic}
+    .info-sep{color:#94a3b8;margin:0 5px}
+
+    /* CONTAINER BADGE */
+    .container-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;background:#d1fae5;color:#065f46;margin-top:2px}
+
+    /* REMARKS */
+    .remarks-box{margin:4px 20px 16px;background:#f8fafc;border-radius:10px;padding:12px 14px;border:1px solid #e2e8f0}
+    .remarks-title{font-size:10px;color:#64748b;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:6px}
+    .remarks-text{font-size:12px;color:#374151;line-height:1.6}
+
+    #footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);margin-top:20px}
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <span class="logo">🌐</span>
+  <div>
+    <div class="brand">SHIPMENT TRACKER</div>
+    <div class="sub">Freight Status Portal · TKM Global</div>
+  </div>
+  <div id="pill"><span id="live-dot"></span><span id="pill-text">Loading…</span></div>
+</div>
+
+<div id="app">
+  <h1>Track Your Shipment</h1>
+  <p class="subtitle">Select freight type, then enter your PO Number or Position Number</p>
+
+  <div class="mode-tabs">
+    <button class="mode-tab lcl active" onclick="switchMode('lcl')">
+      <span class="tab-icon">🚢</span>
+      <span>Sea Freight LCL<span class="tab-sub">Less than Container</span></span>
+    </button>
+    <button class="mode-tab fcl" onclick="switchMode('fcl')">
+      <span class="tab-icon">📦</span>
+      <span>Sea Freight FCL/BB<span class="tab-sub">Full Container / Breakbulk</span></span>
+    </button>
+    <button class="mode-tab air" onclick="switchMode('air')">
+      <span class="tab-icon">✈️</span>
+      <span>Air Freight<span class="tab-sub">Air Shipments</span></span>
+    </button>
+  </div>
+
+  <div id="loader"><div class="spinner"></div><p id="loader-msg">Loading…</p></div>
+  <div id="error-box"></div>
+
+  <div id="search-area">
+    <div class="toggle-row">
+      <button class="toggle-btn active" data-type="both">Both</button>
+      <button class="toggle-btn" data-type="po">PO Number</button>
+      <button class="toggle-btn" data-type="pos">Position No.</button>
+    </div>
+    <div class="search-row">
+      <input id="search-input" type="text" placeholder="e.g. TSL/57439 or 22-0010-605-00" />
+      <button id="search-btn" onclick="doSearch()">Search</button>
+    </div>
+    <button id="clear-btn" onclick="clearSearch()">✕ Clear</button>
+    <div id="status-bar"></div>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<div id="footer">Live data · Sea LCL · Sea FCL · Air Freight · TKM Global</div>
+
+<script>
+"use strict";
+
+// ── FLOW URLs ─────────────────────────────────────────────────
+const LCL_URL = "https://default1a736ba62f254dae96db4d3aef897a.60.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/f571094135a44ebbab498bb3fd5dc7aa/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=JKWuSbs88N9fRTMcVagL_mdpHfCXJpcZdcwSz28BMho";
+const FCL_URL = "https://default1a736ba62f254dae96db4d3aef897a.60.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/33d527f29d24460d8b0da84dbc29dc39/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=877JekKMqxUX6DfCkhUrkvPIOpNTAisgXEr1DB9Cn44";
+const AIR_URL = "https://default1a736ba62f254dae96db4d3aef897a.60.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/622bba00d28246d3a9b88137b8443706/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Bechyrkb8yfzLb5Ui_rxu5naIqrTQ44TwphOFOAoCtw";
+
+// ── STATE ─────────────────────────────────────────────────────
+const data = { lcl:[], fcl:[], air:[] };
+const loaded = { lcl:false, fcl:false, air:false };
+let currentMode = "lcl";
+let searchType  = "both";
+
+// ── INIT ──────────────────────────────────────────────────────
+window.addEventListener("DOMContentLoaded", async ()=>{
+  document.querySelectorAll(".toggle-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      document.querySelectorAll(".toggle-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      searchType=btn.dataset.type;
+    });
+  });
+  document.getElementById("search-input").addEventListener("keydown",e=>{ if(e.key==="Enter") doSearch(); });
+  await loadMode("lcl");
+});
+
+// ── MODE SWITCH ───────────────────────────────────────────────
+async function switchMode(mode){
+  currentMode=mode; clearSearch();
+  document.querySelectorAll(".mode-tab").forEach(t=>{ t.classList.remove("active"); if(t.classList.contains(mode)) t.classList.add("active"); });
+  const colors={lcl:"linear-gradient(135deg,#0ea5e9,#2563eb)",fcl:"linear-gradient(135deg,#10b981,#059669)",air:"linear-gradient(135deg,#8b5cf6,#6d28d9)"};
+  document.getElementById("search-btn").style.background=colors[mode];
+  if(!loaded[mode]) await loadMode(mode);
+  else showSearchArea(mode);
+}
+
+// ── LOAD ──────────────────────────────────────────────────────
+const URLS={lcl:LCL_URL,fcl:FCL_URL,air:AIR_URL};
+const LABELS={lcl:"sea LCL",fcl:"sea FCL/BB",air:"air"};
+
+async function loadMode(mode){
+  showLoader(`Loading ${LABELS[mode]} freight data…`);
+  try {
+    const res=await fetch(URLS[mode],{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    if(!res.ok) throw new Error(`Flow returned ${res.status}`);
+    const raw=await res.json();
+    const rows=Array.isArray(raw)?raw:(raw.value||raw.body||[]);
+    const fn={lcl:normaliseLCL,fcl:normaliseFCL,air:normaliseAir}[mode];
+    data[mode]=rows.map(fn).filter(s=>s.po_number||s.position_no);
+    loaded[mode]=true;
+    showSearchArea(mode);
+  } catch(err){
+    showError(`Could not load ${LABELS[mode]} data.<br><strong>Details:</strong> `+err.message);
+  }
+}
+
+// ── DATE HELPERS ──────────────────────────────────────────────
+function fmtDate(v){
+  if(v===undefined||v===null||v==="") return "";
+  const s=String(v).trim();
+  if(s==="-"||s.toLowerCase()==="nat"||s==="None") return "";
+  const num=Number(s);
+  if(!isNaN(num)&&num>40000&&num<60000){
+    const d=new Date(Math.round((num-25569)*86400*1000));
+    return `${String(d.getUTCDate()).padStart(2,"0")}.${String(d.getUTCMonth()+1).padStart(2,"0")}.${d.getUTCFullYear()}`;
+  }
+  // DD/MM/YYYY
+  const s1=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(s1) return `${s1[1]}.${s1[2]}.${s1[3]}`;
+  // DD.MM.YYYY
+  if(/^\d{2}\.\d{2}\.\d{4}$/.test(s)) return s;
+  // YYYY-MM-DD
+  const s2=s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(s2) return `${s2[3]}.${s2[2]}.${s2[1]}`;
+  return s;
+}
+
+function isCompleted(d){
+  if(!d||d==="-"||d==="") return false;
+  const m=d.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if(!m) return false;
+  const dt=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+  const today=new Date(); today.setHours(0,0,0,0);
+  return dt<today;
+}
+
+function labelDate(d){
+  if(!d||d==="-"||d==="TBA") return d;
+  const m=d.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if(!m) return d;
+  const dt=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]));
+  const today=new Date(); today.setHours(0,0,0,0);
+  const yesterday=new Date(today); yesterday.setDate(today.getDate()-1);
+  return dt<=yesterday?d:d+' <span style="font-size:11px;color:#f59e0b;font-weight:600">(Planned)</span>';
+}
+
+function get(r,...keys){
+  for(const k of keys){
+    const v=r[k];
+    if(v!==undefined&&v!==null&&String(v).trim()!==""&&String(v).trim()!=="NaT"&&String(v).trim()!=="None") return String(v).trim();
+  }
+  return "";
+}
+
+// ── NORMALISE LCL ─────────────────────────────────────────────
+function normaliseLCL(r){
+  return {
+    mode:"lcl",
+    supplier:       get(r,"Supplier"),
+    po_number:      get(r,"PO_number","PO_Number","PO number"),
+    incoterm:       get(r,"Incoterm"),
+    pol:            get(r,"POL"),
+    pod:            get(r,"POD"),
+    pieces:         get(r,"No_x002e_ of Pieces","No_ of Pieces","No. of Pieces").replace(/\.0$/,""),
+    gross_wt:       get(r,"Gross Wt_x002e_ (Kgs)","Gross Wt_ (Kgs)","Gross Wt. (Kgs)").replace(/\.0$/,""),
+    cbm:            get(r,"CBM"),
+    vessel:         get(r,"Vessel"),
+    pickup:         fmtDate(get(r,"Pickup")),
+    arrival_wh:     fmtDate(get(r,"Arrival at Warehouse","Arrival_at_Warehouse")),
+    etd:            fmtDate(get(r,"ETD"))||get(r,"ETD"),
+    sob:            fmtDate(get(r,"Shipped_on_Board","Shipped on Board")),
+    eta:            fmtDate(get(r,"ETA"))||get(r,"ETA"),
+    pre_alert_date: fmtDate(get(r,"Pre-alert Date","Pre_alert_Date")),
+    position_no:    get(r,"Position_No","Position No"),
+    hbl:            get(r,"HBL"),
+    remarks:        get(r,"Remarks"),
+  };
+}
+
+// ── NORMALISE FCL ─────────────────────────────────────────────
+function normaliseFCL(r){
+  return {
+    mode:"fcl",
+    supplier:       get(r,"Supplier"),
+    po_number:      get(r,"PO_x000a_number","PO \nnumber","PO_number","PO number","PO_Number"),
+    category:       get(r,"Category"),
+    incoterm:       get(r,"Incoterm"),
+    pol:            get(r,"POL"),
+    pod:            get(r,"POD"),
+    gross_wt:       get(r,"Gross Wt","Gross_Wt","GrossWt").replace(/\.0$/,""),
+    containers:     get(r,"Container_x0028_s_x0029___x002f__Packages","Container(s) / Packages","Containers","Container_s___Packages"),
+    vessel:         get(r,"Vessel"),
+    release_date:   fmtDate(get(r,"Release_x000a_date","Release\ndate","Release_date","Release date")),
+    etd:            fmtDate(get(r,"ETD"))||get(r,"ETD"),
+    eta:            fmtDate(get(r,"ETA"))||get(r,"ETA"),
+    sob:            fmtDate(get(r,"SOB","Shipped_on_Board")),
+    pre_alert_date: fmtDate(get(r,"Pre-alert Date","Pre_alert_Date","Pre_x002d_alert_Date")),
+    position_no:    get(r,"Posi","Position_No","Position No"),
+    reference:      get(r,"Column1"),
+    comments:       get(r,"Comments"),
+  };
+}
+
+// ── NORMALISE AIR ─────────────────────────────────────────────
+function normaliseAir(r){
+  return {
+    mode:"air",
+    supplier:          get(r,"Supplier"),
+    po_number:         get(r,"PO_number","PO_Number","PO number"),
+    incoterm:          get(r,"Incoterm"),
+    pol:               get(r,"POL"),
+    pod:               get(r,"POD"),
+    pieces:            get(r,"No_x002e__of_Pieces","No._of_Pieces","No. of Pieces","No_of_Pieces").replace(/\.0$/,""),
+    gross_wt:          get(r,"Gross_Wt__x0028_Kg_x0029_","Gross_Wt_(Kg)","Gross Wt (Kg)","Gross Wt_x002e_ (Kgs)").replace(/\.0$/,""),
+    flight_no:         get(r,"Flight_x0023_","Flight#","Flight No"),
+    pickup:            fmtDate(get(r,"Pick_x002d_up_Date","Pick-up_Date","Pickup_Date","Pickup")),
+    available_airport: fmtDate(get(r,"Available_at_Airport_Date","Available at Airport Date")),
+    etd:               fmtDate(get(r,"ETD_ATD","ETD"))||get(r,"ETD_ATD","ETD"),
+    eta:               fmtDate(get(r,"ETA_ATA","ETA"))||get(r,"ETA_ATA","ETA"),
+    pre_alert_date:    fmtDate(get(r,"Pre_x002d_alert_Date","Pre-alert_Date","Pre-alert Date")),
+    position_no:       get(r,"Position_No","Position No"),
+    hawb:              get(r,"HAWB_No_x002e_","HAWB_No.","HAWB No"),
+    mawb:              get(r,"MAWB_No_x002e_","MAWB_No.","MAWB No"),
+    remarks:           get(r,"Remarks"),
+    additional_remarks:get(r,"Additional_Remarks","Additional Remarks"),
+  };
+}
+
+// ── SEARCH ────────────────────────────────────────────────────
+function doSearch(){
+  const q=document.getElementById("search-input").value.trim().toLowerCase();
+  if(!q) return;
+  document.getElementById("clear-btn").style.display="inline";
+  const dataset=data[currentMode];
+  const res=dataset.filter(s=>{
+    const po=s.po_number.toLowerCase().includes(q);
+    const pos=s.position_no.toLowerCase().includes(q);
+    if(searchType==="po") return po;
+    if(searchType==="pos") return pos;
+    return po||pos;
+  });
+  const c=document.getElementById("results");
+  const icons={lcl:"🚢",fcl:"📦",air:"✈️"};
+  if(res.length===0){
+    c.innerHTML=`<div class="empty"><div class="icon">${icons[currentMode]}</div><h3>No records found</h3><p>No ${LABELS[currentMode]} shipments match "<strong>${escHtml(q)}</strong>".</p></div>`;
+  } else {
+    c.innerHTML=`<div class="result-count">${res.length} shipment${res.length>1?"s":""} found</div>`+
+      res.map(s=>s.mode==="lcl"?renderLCL(s):s.mode==="fcl"?renderFCL(s):renderAir(s)).join("");
+  }
+}
+
+function clearSearch(){ document.getElementById("search-input").value=""; document.getElementById("results").innerHTML=""; document.getElementById("clear-btn").style.display="none"; }
+
+// ── VESSEL FINDER LINK ────────────────────────────────────────
+function vesselLink(vessel){
+  if(!vessel||vessel==="TBA"||vessel==="") return "";
+  const name=vessel.replace(/\s+V\.\d+[EW]$/i,"").trim();
+  return `https://www.vesselfinder.com/vessels?name=${encodeURIComponent(name)}`;
+}
+
+// ── FLIGHT AWARE LINK ─────────────────────────────────────────
+const IATA_TO_ICAO={"AI":"AIC","LH":"DLH","EK":"UAE","QR":"QTR","EY":"ETD","TK":"THY","KL":"KLM","AF":"AFR","BA":"BAW","SQ":"SIA","CX":"CPA","FX":"FDX","5X":"UPS","CV":"CLX","IB":"IBE","OS":"AUA","SK":"SAS","AY":"FIN","WY":"OAS","MS":"MSR","ET":"ETH","KQ":"KQA","IX":"IAD","6E":"IGO","UK":"UKX","SV":"SVA","GF":"GFA","PK":"PIA","UL":"ALK","9W":"JAI","G8":"GOW","I5":"IAX","SG":"SEJ"};
+function flightLink(flightNo){
+  if(!flightNo||flightNo==="TBA"||flightNo==="") return "";
+  const first=flightNo.split(/[+\/,]/)[0].trim();
+  const m=first.match(/^([A-Z]{1,3})(\d+.*)$/i);
+  if(!m) return `https://www.flightaware.com/live/flight/${encodeURIComponent(first)}`;
+  const icao=IATA_TO_ICAO[m[1].toUpperCase()]||m[1].toUpperCase();
+  return `https://www.flightaware.com/live/flight/${icao}${m[2].trim()}`;
+}
+
+// ── TRACKER BUILDER ───────────────────────────────────────────
+function buildTracker(steps, mode){
+  const doneCount=steps.filter(s=>s.done).length;
+  const fillPct=doneCount===0?0:((doneCount-1)/(steps.length-1)*100);
+  return `<div class="tracker-wrap">
+    <div class="tracker-title">Shipment Progress</div>
+    <div class="tracker">
+      <div class="tracker-line-bg"><div class="tracker-line-fill ${mode}" style="width:${fillPct}%"></div></div>
+      <div class="tracker-nodes">${steps.map((st,i)=>`
+        <div class="tracker-node">
+          <div class="node-circle ${st.done?`done ${mode}`:"open"}">${st.done?"":`<span style="font-size:10px;color:#d1d5db">${i+1}</span>`}</div>
+          <div class="node-label ${st.done?`done ${mode}`:"open"}">${st.label.split("\n").map(l=>escHtml(l)).join("<br>")}</div>
+        </div>`).join("")}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── RENDER HELPERS ────────────────────────────────────────────
+const v  =(val,fb="-")=>val&&val!=="-"&&val!==""?`<span class="info-value">${escHtml(val)}</span>`:`<span class="info-value tba">${fb}</span>`;
+const vhl=(val,fb="-")=>val&&val!=="-"&&val!==""?`<span class="info-value hl">${escHtml(val)}</span>`:`<span class="info-value tba">${fb}</span>`;
+const vDate=(val,fb="TBA")=>val&&val!=="-"&&val!==""?`<span class="info-value">${labelDate(val)}</span>`:`<span class="info-value tba">${fb}</span>`;
+const remarks=(text,add)=>(text||add)?`<div class="remarks-box"><div class="remarks-title">Remarks</div>${text?`<div class="remarks-text">${escHtml(text)}</div>`:""}${add?`<div class="remarks-text" style="margin-top:4px;color:#6b7280;font-style:italic">${escHtml(add)}</div>`:""}</div>`:"";
+
+function routeHTML(pol,pod,sub,subStyle=""){
+  return `<div class="card-route" style="margin-top:14px">
+    <div class="route-port"><div class="route-port-code">${escHtml(pol||"—")}</div><div class="route-port-label">Origin</div></div>
+    <div class="route-mid">
+      <span class="route-sub" style="${subStyle}">${escHtml(sub||"")}</span>
+      <div class="route-arrow-line"></div>
+    </div>
+    <div class="route-port"><div class="route-port-code">${escHtml(pod||"—")}</div><div class="route-port-label">Destination</div></div>
+  </div>`;
+}
+
+// ── RENDER LCL ────────────────────────────────────────────────
+function renderLCL(s){
+  const steps=[
+    {label:"Order\nReceived", done:!!s.po_number},
+    {label:"Booked",          done:!!s.vessel&&s.vessel!=="TBA"},
+    {label:"Picked Up",       done:isCompleted(s.pickup)},
+    {label:"Arrived\nat WH",  done:isCompleted(s.arrival_wh)},
+    {label:"Vessel\nDeparted",done:isCompleted(s.sob)},
+    {label:"Pre-alert\nSent", done:isCompleted(s.pre_alert_date)},
+    {label:"Vessel\nArrived", done:false},
+  ];
+  const vesselSub=s.vessel&&s.vessel!=="TBA"?s.vessel:"Vessel TBA";
+  const vesselSubStyle=s.vessel&&s.vessel!=="TBA"?"":"color:#475569;font-style:italic";
+  return `<div class="card">
+    <div class="card-head lcl">
+      <div class="card-mode-badge lcl">🚢 SEA FREIGHT · LCL</div>
+      <div class="card-po-label">PO Number</div>
+      <div class="card-po-value">${escHtml(s.po_number||"-")}</div>
+      ${routeHTML(s.pol,s.pod,vesselSub,vesselSubStyle)}
+    </div>
+    ${buildTracker(steps,"lcl")}
+    <div class="info-grid">
+      <div class="info-item"><div class="info-label">TKM Position No.</div>${vhl(s.position_no)}</div>
+      <div class="info-item"><div class="info-label">Supplier</div>${v(s.supplier)}</div>
+      <div class="info-item"><div class="info-label">Incoterm</div>${v(s.incoterm)}</div>
+      <div class="info-item"><div class="info-label">No. of Packages</div>${s.pieces?`<span class="info-value">${escHtml(s.pieces)}</span>`:'<span class="info-value tba">-</span>'}</div>
+      <div class="info-item"><div class="info-label">Gross Weight</div>${s.gross_wt?`<span class="info-value">${escHtml(s.gross_wt)} kg</span>`:'<span class="info-value tba">-</span>'}</div>
+      <div class="info-item"><div class="info-label">CBM</div>${s.cbm?`<span class="info-value">${escHtml(s.cbm)} m³</span>`:'<span class="info-value tba">-</span>'}</div>
+      <div class="info-item"><div class="info-label">Pickup Date</div>${vDate(s.pickup)}</div>
+      <div class="info-item"><div class="info-label">Arrival at Warehouse</div>${vDate(s.arrival_wh,"-")}</div>
+      <div class="info-item"><div class="info-label">Vessel</div>
+        ${s.vessel&&s.vessel!=="TBA"?`<span class="info-value">${escHtml(s.vessel)}<br><a href="${vesselLink(s.vessel)}" target="_blank" style="font-size:11px;color:#0ea5e9;text-decoration:none;font-weight:600">Track Vessel Status ↗</a></span>`:'<span class="info-value tba">TBA</span>'}
+      </div>
+      <div class="info-item"><div class="info-label">Pre-alert Date</div>${vDate(s.pre_alert_date,"-")}</div>
+      <div class="info-item"><div class="info-label">POL (Origin)</div><span class="info-value">${escHtml(s.pol||"—")}<span class="info-sep">→</span>ETD: ${s.etd?`<strong>${labelDate(s.etd)}</strong>`:'<span style="color:#94a3b8;font-style:italic">TBA</span>'}</span></div>
+      <div class="info-item"><div class="info-label">POD (Destination)</div><span class="info-value">${escHtml(s.pod||"—")}<span class="info-sep">→</span>ETA: ${s.eta?`<strong>${labelDate(s.eta)}</strong>`:'<span style="color:#94a3b8;font-style:italic">TBA</span>'}</span></div>
+    </div>
+    ${remarks(s.remarks)}
+  </div>`;
+}
+
+// ── RENDER FCL ────────────────────────────────────────────────
+function renderFCL(s){
+  const steps=[
+    {label:"Order\nReceived",  done:!!s.po_number},
+    {label:"Booked",           done:!!s.vessel&&s.vessel!=="TBA"},
+    {label:"Vessel\nDeparted", done:isCompleted(s.sob)},
+    {label:"Pre-alert\nSent",  done:isCompleted(s.pre_alert_date)},
+    {label:"Vessel\nArrived",  done:false},
+  ];
+  const vesselSub=s.vessel&&s.vessel!=="TBA"?s.vessel:"Vessel TBA";
+  const vesselSubStyle=s.vessel&&s.vessel!=="TBA"?"":"color:#475569;font-style:italic";
+  return `<div class="card">
+    <div class="card-head fcl">
+      <div class="card-mode-badge fcl">📦 SEA FREIGHT · FCL/BB</div>
+      <div class="card-po-label">PO Number</div>
+      <div class="card-po-value">${escHtml(s.po_number||"-")}</div>
+      ${routeHTML(s.pol,s.pod,vesselSub,vesselSubStyle)}
+    </div>
+    ${buildTracker(steps,"fcl")}
+    <div class="info-grid">
+      <div class="info-item"><div class="info-label">TKM Position No.</div>${vhl(s.position_no)}</div>
+      <div class="info-item"><div class="info-label">Supplier</div>${v(s.supplier)}</div>
+      <div class="info-item"><div class="info-label">Category</div>${v(s.category)}</div>
+      <div class="info-item"><div class="info-label">Incoterm</div>${v(s.incoterm)}</div>
+      <div class="info-item full">
+        <div class="info-label">Container(s)</div>
+        ${s.containers?`<span class="container-badge">📦 ${escHtml(s.containers)}</span>`:'<span class="info-value tba">-</span>'}
+      </div>
+      <div class="info-item"><div class="info-label">Gross Weight</div>${s.gross_wt?`<span class="info-value">${escHtml(s.gross_wt)} kg</span>`:'<span class="info-value tba">-</span>'}</div>
+      <div class="info-item"><div class="info-label">Release Date</div>${vDate(s.release_date,"-")}</div>
+      <div class="info-item"><div class="info-label">Vessel</div>
+        ${s.vessel&&s.vessel!=="TBA"?`<span class="info-value">${escHtml(s.vessel)}<br><a href="${vesselLink(s.vessel)}" target="_blank" style="font-size:11px;color:#10b981;text-decoration:none;font-weight:600">Track Vessel Status ↗</a></span>`:'<span class="info-value tba">TBA</span>'}
+      </div>
+      <div class="info-item"><div class="info-label">Pre-alert Date</div>${vDate(s.pre_alert_date,"-")}</div>
+      <div class="info-item"><div class="info-label">Reference (HBL/MBL)</div>${v(s.reference)}</div>
+      <div class="info-item"><div class="info-label">POL (Origin)</div><span class="info-value">${escHtml(s.pol||"—")}<span class="info-sep">→</span>ETD: ${s.etd?`<strong>${labelDate(s.etd)}</strong>`:'<span style="color:#94a3b8;font-style:italic">TBA</span>'}</span></div>
+      <div class="info-item"><div class="info-label">POD (Destination)</div><span class="info-value">${escHtml(s.pod||"—")}<span class="info-sep">→</span>ETA: ${s.eta?`<strong>${labelDate(s.eta)}</strong>`:'<span style="color:#94a3b8;font-style:italic">TBA</span>'}</span></div>
+    </div>
+    ${remarks(s.comments)}
+  </div>`;
+}
+
+// ── RENDER AIR ────────────────────────────────────────────────
+function renderAir(s){
+  const steps=[
+    {label:"Order\nReceived",  done:!!s.po_number},
+    {label:"Booked",           done:!!s.flight_no&&s.flight_no!=="TBA"},
+    {label:"Picked Up",        done:isCompleted(s.pickup)},
+    {label:"At Airport",       done:isCompleted(s.available_airport)},
+    {label:"Flight\nDeparted", done:isCompleted(s.etd)},
+    {label:"Pre-alert\nSent",  done:isCompleted(s.pre_alert_date)},
+    {label:"Flight\nArrived",  done:isCompleted(s.eta)},
+  ];
+  const flightSub=s.flight_no&&s.flight_no!=="TBA"?s.flight_no:"Flight TBA";
+  const flightSubStyle=s.flight_no&&s.flight_no!=="TBA"?"":"color:#475569;font-style:italic";
+  return `<div class="card">
+    <div class="card-head air">
+      <div class="card-mode-badge air">✈️ AIR FREIGHT</div>
+      <div class="card-po-label">PO Number</div>
+      <div class="card-po-value">${escHtml(s.po_number||"-")}</div>
+      ${routeHTML(s.pol,s.pod,flightSub,flightSubStyle)}
+    </div>
+    ${buildTracker(steps,"air")}
+    <div class="info-grid">
+      <div class="info-item"><div class="info-label">TKM Position No.</div>${vhl(s.position_no)}</div>
+      <div class="info-item"><div class="info-label">Supplier</div>${v(s.supplier)}</div>
+      <div class="info-item"><div class="info-label">Incoterm</div>${v(s.incoterm)}</div>
+      <div class="info-item"><div class="info-label">No. of Packages</div>${s.pieces?`<span class="info-value">${escHtml(s.pieces)}</span>`:'<span class="info-value tba">-</span>'}</div>
+      <div class="info-item"><div class="info-label">Gross Weight</div>${s.gross_wt?`<span class="info-value">${escHtml(s.gross_wt)} kg</span>`:'<span class="info-value tba">-</span>'}</div>
+      <div class="info-item"><div class="info-label">Flight No.</div>
+        ${s.flight_no&&s.flight_no!=="TBA"?`<span class="info-value">${escHtml(s.flight_no)}<br><a href="${flightLink(s.flight_no)}" target="_blank" style="font-size:11px;color:#8b5cf6;text-decoration:none;font-weight:600">Track Flight Status ↗</a></span>`:'<span class="info-value tba">TBA</span>'}
+      </div>
+      <div class="info-item"><div class="info-label">Pickup Date</div>${vDate(s.pickup)}</div>
+      <div class="info-item"><div class="info-label">Available at Airport</div>${vDate(s.available_airport,"-")}</div>
+      <div class="info-item"><div class="info-label">HAWB No.</div>${vhl(s.hawb)}</div>
+      <div class="info-item"><div class="info-label">MAWB No.</div>${v(s.mawb)}</div>
+      <div class="info-item"><div class="info-label">Pre-alert Date</div>${vDate(s.pre_alert_date,"-")}</div>
+      <div class="info-item"><div class="info-label">POL (Origin)</div><span class="info-value">${escHtml(s.pol||"—")}<span class="info-sep">→</span>${isCompleted(s.etd)?"ATD":"ETD"}: ${s.etd?`<strong>${labelDate(s.etd)}</strong>`:'<span style="color:#94a3b8;font-style:italic">TBA</span>'}</span></div>
+      <div class="info-item"><div class="info-label">POD (Destination)</div><span class="info-value">${escHtml(s.pod||"—")}<span class="info-sep">→</span>${isCompleted(s.eta)?"ATA":"ETA"}: ${s.eta?`<strong>${labelDate(s.eta)}</strong>`:'<span style="color:#94a3b8;font-style:italic">TBA</span>'}</span></div>
+    </div>
+    ${remarks(s.remarks,s.additional_remarks)}
+  </div>`;
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────
+function showLoader(msg){ document.getElementById("loader").style.display="block"; document.getElementById("loader-msg").textContent=msg||"Loading…"; document.getElementById("search-area").style.display="none"; document.getElementById("error-box").style.display="none"; document.getElementById("results").innerHTML=""; document.getElementById("live-dot").style.display="none"; document.getElementById("pill-text").textContent="Loading…"; }
+function showSearchArea(mode){ const colors={lcl:"linear-gradient(135deg,#0ea5e9,#2563eb)",fcl:"linear-gradient(135deg,#10b981,#059669)",air:"linear-gradient(135deg,#8b5cf6,#6d28d9)"}; document.getElementById("loader").style.display="none"; document.getElementById("error-box").style.display="none"; document.getElementById("search-area").style.display="block"; document.getElementById("live-dot").style.display="inline-block"; document.getElementById("pill-text").textContent=`Live · ${data[mode].length} shipments`; document.getElementById("status-bar").textContent=`⟳ Live data · ${data[mode].length} ${LABELS[mode]} shipments loaded`; document.getElementById("search-btn").style.background=colors[mode]; }
+function showError(html){ document.getElementById("loader").style.display="none"; document.getElementById("error-box").style.display="block"; document.getElementById("error-box").innerHTML="⚠️ "+html; document.getElementById("live-dot").style.display="none"; document.getElementById("pill-text").textContent="Error"; }
+function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+</script>
+</body>
+</html>
